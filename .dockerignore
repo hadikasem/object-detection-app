@@ -1,0 +1,13 @@
+# venvs & py cache
+.venv/
+__pycache__/
+*.pyc
+
+# git & editor stuff
+.git/
+.gitignore
+.vscode/
+.DS_Store
+
+# local runs output (optional keep)
+runs/

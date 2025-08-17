@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>YOLO Object Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827;       /* gray-900 */
+      --muted: #9ca3af;       /* gray-400 */
+      --text: #e5e7eb;        /* gray-200 */
+      --accent: #22c55e;      /* green-500 */
+      --accent-2: #60a5fa;    /* blue-400 */
+      --error: #ef4444;       /* red-500 */
+      --card: #0b1220;        /* deep navy */
+      --border: #1f2937;      /* gray-800 */
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; background: linear-gradient(180deg, var(--bg), #0b1220);
+      color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    .container {
+      max-width: 960px; margin: 40px auto; padding: 0 16px;
+    }
+    .header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+    }
+    .title {
+      font-size: 1.6rem; font-weight: 700; letter-spacing: 0.2px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .badge {
+      font-size: 0.8rem; color: var(--accent); border: 1px solid #134e4a; background: #052e2b; padding: 2px 8px; border-radius: 999px;
+    }
+
+    .grid {
+      display: grid; gap: 20px;
+      grid-template-columns: 1fr; 
+    }
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1.1fr 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), #0a0f1a);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 {
+      margin: 0 0 10px; font-size: 1.1rem; color: #d1d5db; font-weight: 600;
+    }
+    .sub { color: var(--muted); font-size: 0.9rem; margin: 0 0 12px; }
+
+    .row { display: grid; gap: 10px; }
+    .input {
+      width: 100%; background: #0a0f1a; color: var(--text);
+      border: 1px dashed #2b3648; border-radius: 12px; padding: 12px 14px;
+      outline: none;
+    }
+    .input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(96,165,250,0.15); }
+    .hint { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 14px; border-radius: 12px; border: 1px solid #1e293b;
+      background: linear-gradient(180deg, #1f2937, #111827);
+      color: #e5e7eb; font-weight: 600; cursor: pointer; transition: transform .05s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: #334155; }
+    .btn:active { transform: translateY(0); }
+    .btn-primary {
+      background: linear-gradient(180deg, #2563eb, #1d4ed8);
+      border-color: #1e40af;
+    }
+
+    .preview {
+      width: 100%; border-radius: 12px; border: 1px solid var(--border); overflow: hidden;
+      display: grid; place-items: center; background: #0a0f1a; min-height: 120px;
+    }
+    .preview img { width: 100%; height: auto; max-height: 560px; display: block; }
+
+    .table {
+      width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; border: 1px solid var(--border);
+    }
+    .table th, .table td {
+      text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.92rem;
+    }
+    .table th { background: #0c1424; color: #cbd5e1; font-weight: 600; }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 999px; background: #0b2a18; color: #86efac; border: 1px solid #14532d;
+      font-size: 0.8rem;
+    }
+    .error {
+      border: 1px solid #7f1d1d; background: #2a0b0b; color: #fecaca; padding: 10px 12px; border-radius: 12px; margin: 10px 0;
+    }
+    .footer { margin-top: 22px; color: var(--muted); font-size: 0.85rem; text-align: center; }
+
+    .row-inline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.25); border-top-color: white; border-radius: 50%;
+      animation: spin 0.8s linear infinite; display: none; margin-left: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">YOLO Object Detection <span class="badge">Flask</span></div>
+      <div class="sub">Upload a file or paste a URL. The server will return detections and an annotated image.</div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Input card -->
+      <div class="card">
+        <h2>Input</h2>
+        <p class="sub">Choose <strong>one</strong> option below. If both are provided, the file upload takes priority.</p>
+
+        <form id="detect-form" action="/predict" method="POST" enctype="multipart/form-data" onsubmit="startLoading()">
+          <div class="row">
+            <label for="image" class="sub">Upload an image</label>
+            <input class="input" type="file" id="image" name="image" accept="image/*" />
+            <div class="hint">PNG / JPG / JPEG / BMP — up to 5 MB</div>
+          </div>
+
+          <div class="sub" style="margin: 12px 0; text-align:center; opacity:.8;">— or —</div>
+
+          <div class="row">
+            <label for="image_url" class="sub">Paste an image URL</label>
+            <input class="input" type="url" id="image_url" name="image_url" placeholder="https://example.com/cat.jpg" />
+            <div class="hint">Must be a direct image link (ends with .jpg / .png / …)</div>
+          </div>
+
+          <div class="row-inline" style="margin-top: 14px;">
+            <button class="btn btn-primary" type="submit">
+              Detect
+              <span id="spinner" class="spinner"></span>
+            </button>
+            <button class="btn" type="button" onclick="clearForm()">Clear</button>
+          </div>
+        </form>
+
+        {% if detections %}
+          <!-- Error messages (if any) -->
+          {% for det in detections %}
+            {% if det.error %}
+              <div class="error">⚠️ {{ det.error }}</div>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <!-- Right: Results card -->
+      <div class="card">
+        <h2>Result</h2>
+        <p class="sub">Annotated image and detected objects appear here.</p>
+
+        <div class="preview">
+          {% if image_url %}
+            <img src="{{ image_url }}" alt="Annotated result" />
+          {% else %}
+            <div style="color: var(--muted);">No image yet — submit an image to see results.</div>
+          {% endif %}
+        </div>
+
+        {% if detections %}
+          <!-- Tabular view of detections -->
+          <h2 style="margin-top: 16px;">Detections</h2>
+          <div style="overflow:auto;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Class</th>
+                  <th>Confidence</th>
+                  <th>Box [x1, y1, x2, y2]</th>
+                </tr>
+              </thead>
+              <tbody>
+              {% set idx = 1 %}
+              {% for det in detections %}
+                {% if not det.error and det.class_name %}
+                <tr>
+                  <td>{{ idx }}{% set idx = idx + 1 %}</td>
+                  <td><span class="pill">{{ det.class_name }}</span></td>
+                  <td>{{ (det.confidence * 100) | round(1) }}%</td>
+                  <td>[{{ det.box_xyxy[0] }}, {{ det.box_xyxy[1] }}, {{ det.box_xyxy[2] }}, {{ det.box_xyxy[3] }}]</td>
+                </tr>
+                {% endif %}
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Raw JSON as backup -->
+          <details style="margin-top: 10px;">
+            <summary style="cursor:pointer;color:#cbd5e1;">Show raw JSON</summary>
+            <pre style="white-space: pre-wrap; word-break: break-word;">{{ detections | tojson(indent=2) }}</pre>
+          </details>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="footer">
+      Model: <strong>{{ 'best.pt' }}</strong>
+      &nbsp;•&nbsp; Endpoint: <code>/predict</code>
+      &nbsp;•&nbsp; Health: <a style="color:var(--accent-2);" href="/health" target="_blank">/health</a>
+    </div>
+  </div>
+
+  <script>
+    function startLoading() {
+      var sp = document.getElementById('spinner');
+      if (sp) sp.style.display = 'inline-block';
+    }
+    function clearForm() {
+      const f = document.getElementById('detect-form');
+      if (!f) return;
+      f.reset();
+      // Soft reload without resubmitting form: strip query params
+      if (window.location.pathname === "/") {
+        window.location.href = "/";
+      }
+    }
+  </script>
+</body>
+</html>

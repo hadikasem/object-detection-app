@@ -1,0 +1,7 @@
+Flask==3.0.3
+ultralytics==8.2.103
+opencv-python-headless
+pillow
+numpy
+requests
+gunicorn
